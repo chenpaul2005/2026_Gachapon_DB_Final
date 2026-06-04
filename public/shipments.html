@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出貨追蹤 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/index.html" class="nav-brand" title="機台列表">🎰 扭蛋樂園</a>
+  <div class="nav-links"></div>
+  <a href="/wallet.html" class="nav-balance" id="nav-balance" title="前往錢包儲值">載入中…</a>
+  <div class="nav-menu">
+    <button class="nav-menu-button" id="btn-user-menu" type="button" aria-expanded="false" aria-controls="user-menu">
+      我的功能 ▾
+    </button>
+    <div class="nav-menu-dropdown" id="user-menu">
+      <a href="/inventory.html">我的背包</a>
+      <a href="/shipments.html">出貨追蹤</a>
+      <button type="button" id="btn-logout">登出</button>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem">
+    <h1 class="page-title" style="margin-bottom:0">出貨追蹤</h1>
+    <button class="btn btn-outline btn-sm" onclick="loadShipments()">↻ 重新整理</button>
+  </div>
+
+  <div id="shipments-container"><div class="spinner"></div></div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+  initNav();
+
+  const TYPE_LABEL = { home: '宅配到府', convenience: '超商取件' };
+  const PAY_LABEL  = { balance: '餘額扣除', credit_card: '信用卡' };
+
+  // 4-stage progress definition
+  const STAGES = [
+    { key: 'processing', label: '處理中' },
+    { key: 'shipped',    label: '已出貨' },
+    { key: 'delivering', label: '配送中' },
+    { key: 'delivered',  label: '已送達' },
+  ];
+
+  const STATUS_META = {
+    processing: { badge: 'status-processing', icon: '⏳' },
+    shipped:    { badge: 'status-shipped',    icon: '📦' },
+    delivering: { badge: 'status-delivering', icon: '🚚' },
+    delivered:  { badge: 'status-delivered',  icon: '✅' },
+  };
+
+  function buildProgressBar(status) {
+    const activeIdx = STAGES.findIndex(s => s.key === status);
+    return STAGES.map((stage, i) => {
+      let cls = '';
+      if (i < activeIdx)      cls = 'done';
+      else if (i === activeIdx) cls = 'active';
+
+      const checkmark = i < activeIdx ? '✓' : (i === activeIdx ? '●' : '');
+      return `
+        <div class="ship-progress-step ${cls}">
+          <div class="ship-progress-node">${checkmark}</div>
+          <div class="ship-progress-label">${stage.label}</div>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadShipments() {
+    const container = document.getElementById('shipments-container');
+    container.innerHTML = '<div class="spinner"></div>';
+    try {
+      const shipments = await apiFetch('/api/shipments');
+      if (shipments.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p style="font-size:3rem">📭</p>
+            <p>尚無出貨記錄</p>
+            <a href="/inventory.html" class="btn btn-primary" style="margin-top:1rem">前往背包寄送</a>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = '<div class="shipment-list" id="shipment-list"></div>';
+      const list = document.getElementById('shipment-list');
+
+      shipments.forEach(s => {
+        const meta    = STATUS_META[s.status] || STATUS_META.processing;
+        const date    = new Date(s.created_at + 'Z').toLocaleString('zh-TW');
+        const pkgNote = s.package_count > 1
+          ? `<span style="color:#fb923c;font-size:.75rem">（${s.package_count} 個包裹）</span>` : '';
+
+        const card = document.createElement('div');
+        card.className = 'shipment-card';
+        card.innerHTML = `
+          <!-- Info header (clickable to toggle item list) -->
+          <div class="shipment-header" onclick="toggleShipment(this)">
+            <span style="font-size:1.2rem">${meta.icon}</span>
+            <div style="display:flex;flex-direction:column;gap:.15rem;flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                <span style="font-weight:600">出貨單 #${s.shipment_id}</span>
+                ${pkgNote}
+              </div>
+              <div class="shipment-addr" title="${s.address}">
+                ${TYPE_LABEL[s.shipping_type] || s.shipping_type} · ${s.address}
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.2rem;flex-shrink:0">
+              <span style="font-weight:700;color:var(--gold)">運費 ${s.fee} 元</span>
+              <span style="font-size:.75rem;color:var(--text-muted)">${PAY_LABEL[s.payment_method] || s.payment_method}</span>
+              <span class="shipment-date">${date}</span>
+            </div>
+            <span class="toggle-arrow" style="color:var(--text-muted);font-size:.85rem;margin-left:.25rem">▼</span>
+          </div>
+
+          <!-- Progress bar — always visible -->
+          <div class="ship-progress">
+            ${buildProgressBar(s.status)}
+          </div>
+
+          <!-- Collapsible item list -->
+          <div class="shipment-body" id="body-${s.shipment_id}">
+            <p style="font-size:.85rem;color:var(--text-muted);margin:.75rem 0 .5rem">
+              共 <strong>${s.item_count}</strong> 件公仔
+            </p>
+            <div class="shipment-toys-grid" id="toys-${s.shipment_id}">
+              <div class="spinner" style="margin:.5rem auto"></div>
+            </div>
+          </div>`;
+
+        list.appendChild(card);
+      });
+    } catch (err) {
+      if (err.status === 401) return;
+      container.innerHTML = `<p style="color:var(--danger)">載入失敗：${err.message}</p>`;
+    }
+  }
+
+  // Toggle item list; lazy-load on first open
+  async function toggleShipment(header) {
+    // Progress bar is the next sibling; item body is after that
+    const body  = header.nextElementSibling.nextElementSibling;
+    const arrow = header.querySelector('.toggle-arrow');
+    const isOpen = body.classList.contains('open');
+
+    if (isOpen) {
+      body.classList.remove('open');
+      if (arrow) arrow.textContent = '▼';
+      return;
+    }
+
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '▲';
+
+    const shipmentId = body.id.replace('body-', '');
+    const grid = document.getElementById(`toys-${shipmentId}`);
+    if (grid && grid.querySelector('.spinner')) {
+      try {
+        const data = await apiFetch(`/api/shipments/${shipmentId}`);
+        if (!data.items || data.items.length === 0) {
+          grid.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem">（無明細）</p>';
+          return;
+        }
+        grid.innerHTML = data.items.map(item => `
+          <div class="shipment-toy">
+            <img src="${item.image_url}" alt="${item.name}" loading="lazy">
+            <span class="rarity-badge rarity-${item.rarity}"
+                  style="position:static;display:inline-block;margin:.2rem 0">${item.rarity}</span>
+            <span style="font-weight:600">${item.name}</span>
+            <span style="color:var(--text-muted)">${item.machine_name}</span>
+          </div>`).join('');
+      } catch {
+        grid.innerHTML = `<p style="color:var(--danger);font-size:.85rem">載入失敗</p>`;
+      }
+    }
+  }
+
+  loadShipments();
+</script>
+</body>
+</html>

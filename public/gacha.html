@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>扭蛋機台 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .machine-header {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .machine-header img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+    }
+    .machine-header h1 { font-size: 1.6rem; color: var(--gold); }
+    .machine-header p  { color: var(--text-muted); font-size: .9rem; }
+
+    .gacha-stage {
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .reel-wrapper {
+      margin-bottom: 1.25rem;
+    }
+    .reel-outer { height: 175px; }
+
+    .pull-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+    .pull-cost { font-size: 1rem; color: var(--text-muted); }
+    .pull-cost strong { color: var(--accent); font-size: 1.15rem; }
+
+    .toy-pool {
+      margin-top: 1.5rem;
+    }
+    .toy-pool h3 { font-size: 1rem; color: var(--text-muted); margin-bottom: .75rem; }
+    .pool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: .6rem;
+    }
+    .pool-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .3rem;
+      font-size: .72rem;
+      text-align: center;
+    }
+    .pool-item img { width: 56px; height: 56px; object-fit: contain; border-radius: 6px; }
+    .pool-item-name { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/index.html" class="nav-brand" title="機台列表">🎰 扭蛋樂園</a>
+  <div class="nav-links"></div>
+  <a href="/wallet.html" class="nav-balance" id="nav-balance" title="前往錢包儲值">載入中…</a>
+  <div class="nav-menu">
+    <button class="nav-menu-button" id="btn-user-menu" type="button" aria-expanded="false" aria-controls="user-menu">
+      我的功能 ▾
+    </button>
+    <div class="nav-menu-dropdown" id="user-menu">
+      <a href="/inventory.html">我的背包</a>
+      <a href="/shipments.html">出貨追蹤</a>
+      <button type="button" id="btn-logout">登出</button>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div id="page-content"><div class="spinner"></div></div>
+</main>
+
+<!-- Win Modal -->
+<div class="modal-backdrop hidden" id="win-modal">
+  <div class="modal">
+    <button class="modal-close" id="btn-close-win" title="關閉">&times;</button>
+    <p style="font-size:.85rem;color:var(--text-muted)">恭喜獲得</p>
+    <img id="win-img" src="" alt="">
+    <div class="modal-toy-name" id="win-name"></div>
+    <span class="rarity-badge" id="win-rarity"></span>
+    <p style="margin-top:.5rem;color:var(--text-muted);font-size:.9rem">市值 <strong id="win-price" style="color:var(--gold)"></strong> 元</p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="btn-again">🎰 再抽一次</button>
+      <button class="btn btn-secondary" onclick="location.href='/inventory.html'">🎒 前往背包</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  initNav();
+
+  const params    = new URLSearchParams(location.search);
+  const machineId = params.get('id');
+  if (!machineId) location.href = '/';
+
+  const REEL_COUNT = 80;  // total items shown in the reel strip
+
+  let toys     = [];
+  let reelList = []; // flattened repeated toys for animation
+  let spinning = false;
+
+  async function init() {
+    try {
+      const { machine, toys: t } = await apiFetch(`/api/machines/${machineId}`);
+      toys = t;
+      renderPage(machine);
+    } catch (err) {
+      if (err.status === 401) return;
+      document.getElementById('page-content').innerHTML =
+        `<p style="color:var(--danger)">載入失敗：${err.message}</p>`;
+    }
+  }
+
+  function rarityClass(r) {
+    return `rarity-${r}`;
+  }
+
+  function buildReelItem(toy) {
+    const div = document.createElement('div');
+    div.className = 'reel-item';
+    div.dataset.toyId = toy.toy_id;
+    div.innerHTML = `
+      <span class="rarity-badge ${rarityClass(toy.rarity)}">${toy.rarity}</span>
+      <img src="${toy.image_url}" alt="${toy.name}" loading="lazy">
+      <span class="reel-item-name">${toy.name}</span>`;
+    return div;
+  }
+
+  function renderPage(machine) {
+    const content = document.getElementById('page-content');
+    content.innerHTML = `
+      <div class="machine-header">
+        <img src="${machine.image_url}" alt="${machine.name}">
+        <div>
+          <h1>${machine.name}</h1>
+          <p>${machine.description}</p>
+        </div>
+      </div>
+
+      <div class="gacha-stage">
+        <div class="reel-wrapper">
+          <div class="reel-outer" id="reel-outer">
+            <div class="reel-fade-left"></div>
+            <div class="reel-fade-right"></div>
+            <div class="reel-track" id="reel-track"></div>
+          </div>
+        </div>
+
+        <div class="pull-info">
+          <p class="pull-cost">每次抽取費用：<strong>${machine.pull_price} 元</strong></p>
+          <button class="btn btn-gold" id="btn-pull" style="font-size:1.1rem;padding:.7rem 2rem">
+            🎰 抽一次
+          </button>
+        </div>
+      </div>
+
+      <div class="toy-pool">
+        <h3>可能獲得的公仔（共 ${toys.length} 種）</h3>
+        <div class="pool-grid" id="pool-grid"></div>
+      </div>`;
+
+    buildReel();
+    renderPool();
+
+    document.getElementById('btn-pull').addEventListener('click', doPull);
+    document.getElementById('btn-again').addEventListener('click', () => {
+      document.getElementById('win-modal').classList.add('hidden');
+      doPull();
+    });
+
+    // Win Modal Close Button
+    document.getElementById('btn-close-win').addEventListener('click', () => {
+      document.getElementById('win-modal').classList.add('hidden');
+    });
+
+    // Close Modal on Backdrop Click
+    document.getElementById('win-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('win-modal')) {
+        document.getElementById('win-modal').classList.add('hidden');
+      }
+    });
+  }
+
+  function buildReel() {
+    const track = document.getElementById('reel-track');
+    track.innerHTML = '';
+    reelList = [];
+    // Fill reel with repeated toys so we have enough for scrolling
+    for (let i = 0; i < REEL_COUNT; i++) {
+      const toy = toys[i % toys.length];
+      const el  = buildReelItem(toy);
+      track.appendChild(el);
+      reelList.push(toy);
+    }
+  }
+
+  function renderPool() {
+    const grid = document.getElementById('pool-grid');
+    const rarityOrder = { '傳說': 0, '史詩': 1, '稀有': 2, '普通': 3 };
+    const sorted = [...toys].sort((a, b) => (rarityOrder[a.rarity] ?? 9) - (rarityOrder[b.rarity] ?? 9));
+    grid.innerHTML = sorted.map(toy => `
+      <div class="pool-item">
+        <img src="${toy.image_url}" alt="${toy.name}" loading="lazy">
+        <span class="rarity-badge ${rarityClass(toy.rarity)}">${toy.rarity}</span>
+        <span class="pool-item-name">${toy.name}</span>
+        <span style="color:var(--gold);font-size:.7rem">${toy.price} 元</span>
+      </div>`).join('');
+  }
+
+  async function doPull() {
+    if (spinning) return;
+
+    // Reset highlights and rebuild a clean reel before starting the spin
+    buildReel();
+
+    spinning = true;
+    const btn = document.getElementById('btn-pull');
+    btn.disabled = true;
+    btn.textContent = '轉動中…';
+
+    try {
+      const result = await apiFetch(`/api/machines/${machineId}/pull`, { method: 'POST' });
+      const wonToy = result.toy;
+
+      // Update balance in nav immediately
+      document.getElementById('nav-balance').textContent = `💰 ${result.balance.toLocaleString()} 元`;
+
+      // Place the winning toy near the landing zone (centre of reel)
+      // We'll land on index REEL_COUNT-20 (which is 60) so there's room to decelerate
+      const landingIdx = REEL_COUNT - 20;
+      const track = document.getElementById('reel-track');
+      const items  = track.querySelectorAll('.reel-item');
+
+      // Override the landing slot's toy to be the winner
+      items[landingIdx].dataset.toyId = wonToy.toy_id;
+      items[landingIdx].querySelector('img').src = wonToy.image_url;
+      items[landingIdx].querySelector('.reel-item-name').textContent = wonToy.name;
+      items[landingIdx].querySelector('.rarity-badge').className = `rarity-badge ${rarityClass(wonToy.rarity)}`;
+      items[landingIdx].querySelector('.rarity-badge').textContent = wonToy.rarity;
+
+      // Calculate pixel offset to centre the landing item
+      const firstItem = items[0];
+      const ITEM_W    = firstItem ? firstItem.offsetWidth : 140;
+      const outerW   = document.getElementById('reel-outer').offsetWidth;
+      const targetX  = landingIdx * ITEM_W - (outerW / 2 - ITEM_W / 2);
+
+      // Reset to start with no animation, then animate to target
+      track.style.transition = 'none';
+      track.style.transform  = 'translateX(0)';
+
+      // Force reflow before starting animation
+      track.getBoundingClientRect();
+
+      track.style.transition = 'transform 3.5s cubic-bezier(0.23, 1, 0.32, 1)';
+      track.style.transform  = `translateX(-${targetX}px)`;
+
+      // After animation ends
+      setTimeout(() => {
+        items[landingIdx].classList.add('highlight');
+        showWinModal(wonToy);
+        spinning = false;
+        btn.disabled = false;
+        btn.textContent = '🎰 抽一次';
+      }, 3500); // 3.5 seconds matches the transition exactly
+
+    } catch (err) {
+      showToast(err.message, 'error');
+      spinning = false;
+      btn.disabled = false;
+      btn.textContent = '🎰 抽一次';
+    }
+  }
+
+  function showWinModal(toy) {
+    document.getElementById('win-img').src        = toy.image_url;
+    document.getElementById('win-name').textContent = toy.name;
+    document.getElementById('win-price').textContent = toy.price.toLocaleString();
+    const rb = document.getElementById('win-rarity');
+    rb.className   = `rarity-badge ${rarityClass(toy.rarity)}`;
+    rb.textContent = toy.rarity;
+    document.getElementById('win-modal').classList.remove('hidden');
+  }
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+node_modules/
+db/gachapon.db
+db/gachapon.db-shm
+db/gachapon.db-wal
+test_cookies.txt
+.DS_Store
+docs/dev-notes.md

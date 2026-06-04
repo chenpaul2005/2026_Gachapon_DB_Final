@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>註冊 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <h1>🎰 加入扭蛋樂園</h1>
+    <form id="register-form">
+      <div class="form-group">
+        <label for="username">帳號 <small style="color:var(--text-muted)">(2–20 字元)</small></label>
+        <input type="text" id="username" name="username" placeholder="設定帳號" autocomplete="username" required minlength="2" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label for="password">密碼 <small style="color:var(--text-muted)">(至少 4 字元)</small></label>
+        <input type="password" id="password" name="password" placeholder="設定密碼" autocomplete="new-password" required minlength="4">
+      </div>
+      <div class="form-group">
+        <label for="password2">確認密碼</label>
+        <input type="password" id="password2" name="password2" placeholder="再輸入一次密碼" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">建立帳號</button>
+    </form>
+    <p class="auth-footer">已有帳號？<a href="/login.html">前往登入</a></p>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  apiFetch('/api/me').then(() => { location.href = '/'; }).catch(() => {});
+
+  document.getElementById('register-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const pw  = document.getElementById('password').value;
+    const pw2 = document.getElementById('password2').value;
+    if (pw !== pw2) { showToast('兩次密碼不一致', 'error'); return; }
+
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    try {
+      await apiFetch('/api/auth/register', {
+        method: 'POST',
+        body: {
+          username: document.getElementById('username').value.trim(),
+          password: pw,
+        },
+      });
+      showToast('註冊成功！正在跳轉…', 'success');
+      setTimeout(() => { location.href = '/'; }, 800);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

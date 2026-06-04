@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理後台 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/index.html" class="nav-brand" title="機台列表">🎰 扭蛋樂園</a>
+  <div class="nav-links">
+    <a href="/presentation.html" class="nav-pres">口試簡報</a>
+    <a href="/admin.html">管理後台</a>
+  </div>
+  <a href="/wallet.html" class="nav-balance" id="nav-balance" title="前往錢包儲值">載入中…</a>
+  <div class="nav-menu">
+    <button class="nav-menu-button" id="btn-user-menu" type="button" aria-expanded="false" aria-controls="user-menu">
+      我的功能 ▾
+    </button>
+    <div class="nav-menu-dropdown" id="user-menu">
+      <a href="/inventory.html">我的背包</a>
+      <a href="/shipments.html">出貨追蹤</a>
+      <button type="button" id="btn-logout">登出</button>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem">
+    <h1 class="page-title" style="margin-bottom:0">管理後台</h1>
+    <button class="btn btn-outline btn-sm" id="btn-refresh">↻ 重新整理</button>
+  </div>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="users">使用者管理</button>
+    <button class="admin-tab" data-tab="shipments">出貨管理</button>
+  </div>
+
+  <!-- Users panel -->
+  <section class="admin-panel active" id="panel-users">
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>帳號</th>
+            <th>餘額</th>
+            <th>持有公仔</th>
+            <th>已售出</th>
+            <th>註冊時間</th>
+          </tr>
+        </thead>
+        <tbody id="users-body">
+          <tr><td colspan="6"><div class="spinner"></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Shipments panel -->
+  <section class="admin-panel" id="panel-shipments">
+    <div id="shipments-container"><div class="spinner"></div></div>
+  </section>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+  initNav();
+
+  const TYPE_LABEL = { home: '宅配到府', convenience: '超商取件' };
+  const PAY_LABEL  = { balance: '餘額扣除', credit_card: '信用卡' };
+  const STAGES = [
+    { key: 'processing', label: '處理中' },
+    { key: 'shipped',    label: '已出貨' },
+    { key: 'delivering', label: '配送中' },
+    { key: 'delivered',  label: '已送達' },
+  ];
+
+  let activeTab = 'users';
+  const loadedInventory = new Set();
+
+  document.querySelectorAll('.admin-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.admin-panel').forEach(p => {
+        p.classList.toggle('active', p.id === `panel-${activeTab}`);
+      });
+      if (activeTab === 'shipments') loadShipments();
+    });
+  });
+
+  document.getElementById('btn-refresh').addEventListener('click', () => {
+    loadedInventory.clear();
+    if (activeTab === 'users') loadUsers();
+    else loadShipments();
+  });
+
+  function buildProgressBar(status) {
+    const activeIdx = STAGES.findIndex(s => s.key === status);
+    return STAGES.map((stage, i) => {
+      let cls = '';
+      if (i < activeIdx) cls = 'done';
+      else if (i === activeIdx) cls = 'active';
+      const mark = i < activeIdx ? '✓' : (i === activeIdx ? '●' : '');
+      return `
+        <div class="ship-progress-step ${cls}">
+          <div class="ship-progress-node">${mark}</div>
+          <div class="ship-progress-label">${stage.label}</div>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadUsers() {
+    const tbody = document.getElementById('users-body');
+    tbody.innerHTML = '<tr><td colspan="6"><div class="spinner"></div></td></tr>';
+    try {
+      const users = await apiFetch('/api/admin/users');
+      if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">尚無使用者</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach(u => {
+        const date = new Date(u.created_at + 'Z').toLocaleString('zh-TW');
+        const tr = document.createElement('tr');
+        tr.className = 'admin-user-row';
+        tr.innerHTML = `
+          <td>${u.user_id}</td>
+          <td>
+            ${u.username}
+            ${u.is_admin ? '<span class="admin-badge">管理員</span>' : ''}
+          </td>
+          <td style="color:var(--gold);font-weight:600">${u.balance.toLocaleString()} 元</td>
+          <td>${u.owned_count}</td>
+          <td>${u.sold_count}</td>
+          <td style="color:var(--text-muted);font-size:.85rem">${date}</td>`;
+
+        const invRow = document.createElement('tr');
+        invRow.innerHTML = `<td colspan="6" style="padding:0;border:none">
+          <div class="admin-inventory" id="inv-${u.user_id}">
+            <div class="spinner" style="margin:1rem auto"></div>
+          </div>
+        </td>`;
+
+        tr.addEventListener('click', () => toggleUserInventory(u.user_id, invRow));
+        tbody.appendChild(tr);
+        tbody.appendChild(invRow);
+      });
+    } catch (err) {
+      if (err.status === 403) {
+        location.href = '/index.html';
+        return;
+      }
+      tbody.innerHTML = `<tr><td colspan="6" style="color:var(--danger)">載入失敗：${err.message}</td></tr>`;
+    }
+  }
+
+  async function toggleUserInventory(userId, invRow) {
+    const panel = document.getElementById(`inv-${userId}`);
+    const isOpen = panel.classList.contains('open');
+
+    document.querySelectorAll('.admin-inventory.open').forEach(el => el.classList.remove('open'));
+    if (isOpen) return;
+
+    panel.classList.add('open');
+
+    if (loadedInventory.has(userId)) return;
+
+    try {
+      const data = await apiFetch(`/api/admin/users/${userId}/inventory`);
+      loadedInventory.add(userId);
+
+      if (data.items.length === 0) {
+        panel.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;padding:.5rem 0">背包是空的</p>';
+        return;
+      }
+
+      panel.innerHTML = `
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem">
+          <strong>${data.user.username}</strong> 的背包（共 ${data.items.length} 件）
+        </p>
+        <div class="admin-inventory-grid">
+          ${data.items.map(item => `
+            <div class="admin-inv-item">
+              <img src="${item.image_url}" alt="${item.name}" loading="lazy">
+              <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+              <div style="font-weight:600;margin:.15rem 0">${item.name}</div>
+              <div style="color:var(--text-muted)">${item.machine_name}</div>
+              <div style="margin-top:.2rem">
+                ${item.status === 'sold' ? '已售出' : item.shipment_id ? '📦 出貨中' : `持有 · ${item.price} 元`}
+              </div>
+            </div>`).join('')}
+        </div>`;
+    } catch (err) {
+      panel.innerHTML = `<p style="color:var(--danger);font-size:.85rem">載入失敗：${err.message}</p>`;
+    }
+  }
+
+  async function loadShipments() {
+    const container = document.getElementById('shipments-container');
+    container.innerHTML = '<div class="spinner"></div>';
+    try {
+      const shipments = await apiFetch('/api/admin/shipments');
+      if (shipments.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p style="font-size:3rem">📭</p>
+            <p>尚無出貨記錄</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = '<div class="shipment-list" id="admin-shipment-list"></div>';
+      const list = document.getElementById('admin-shipment-list');
+
+      shipments.forEach(s => {
+        const date = new Date(s.created_at + 'Z').toLocaleString('zh-TW');
+        const card = document.createElement('div');
+        card.className = 'shipment-card';
+        card.innerHTML = `
+          <div class="shipment-header" onclick="toggleAdminShipment(this)">
+            <span style="font-size:1.2rem">📦</span>
+            <div style="display:flex;flex-direction:column;gap:.15rem;flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                <span style="font-weight:600">出貨單 #${s.shipment_id}</span>
+                <span class="admin-badge">${s.username}</span>
+              </div>
+              <div class="shipment-addr" title="${s.address}">
+                ${TYPE_LABEL[s.shipping_type] || s.shipping_type} · ${s.address}
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.2rem;flex-shrink:0">
+              <span style="font-weight:700;color:var(--gold)">運費 ${s.fee} 元</span>
+              <span style="font-size:.75rem;color:var(--text-muted)">${PAY_LABEL[s.payment_method] || s.payment_method}</span>
+              <span class="shipment-date">${date}</span>
+            </div>
+            <span class="toggle-arrow" style="color:var(--text-muted);font-size:.85rem;margin-left:.25rem">▼</span>
+          </div>
+
+          <div class="ship-progress">${buildProgressBar(s.status)}</div>
+
+          <div class="shipment-body" id="admin-body-${s.shipment_id}">
+            <div class="admin-shipment-actions" style="margin:.75rem 0">
+              <label style="font-size:.85rem;color:var(--text-muted)">更新狀態：</label>
+              <select class="admin-status-select" id="status-${s.shipment_id}" onclick="event.stopPropagation()">
+                ${STAGES.map(st => `
+                  <option value="${st.key}" ${st.key === s.status ? 'selected' : ''}>${st.label}</option>
+                `).join('')}
+              </select>
+              <button class="btn btn-primary btn-sm"
+                      onclick="event.stopPropagation(); updateShipmentStatus(${s.shipment_id})">
+                儲存
+              </button>
+            </div>
+            <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.5rem">
+              共 <strong>${s.item_count}</strong> 件公仔
+            </p>
+            <div class="shipment-toys-grid" id="admin-toys-${s.shipment_id}">
+              <div class="spinner" style="margin:.5rem auto"></div>
+            </div>
+          </div>`;
+
+        list.appendChild(card);
+      });
+    } catch (err) {
+      if (err.status === 403) {
+        location.href = '/index.html';
+        return;
+      }
+      container.innerHTML = `<p style="color:var(--danger)">載入失敗：${err.message}</p>`;
+    }
+  }
+
+  async function toggleAdminShipment(header) {
+    const body  = header.nextElementSibling.nextElementSibling;
+    const arrow = header.querySelector('.toggle-arrow');
+    const isOpen = body.classList.contains('open');
+
+    if (isOpen) {
+      body.classList.remove('open');
+      if (arrow) arrow.textContent = '▼';
+      return;
+    }
+
+    body.classList.add('open');
+    if (arrow) arrow.textContent = '▲';
+
+    const shipmentId = body.id.replace('admin-body-', '');
+    const grid = document.getElementById(`admin-toys-${shipmentId}`);
+    if (grid && grid.querySelector('.spinner')) {
+      try {
+        const data = await apiFetch(`/api/admin/shipments/${shipmentId}`);
+        if (!data.items || data.items.length === 0) {
+          grid.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem">（無明細）</p>';
+          return;
+        }
+        grid.innerHTML = data.items.map(item => `
+          <div class="shipment-toy">
+            <img src="${item.image_url}" alt="${item.name}" loading="lazy">
+            <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+            <span style="font-weight:600">${item.name}</span>
+            <span style="color:var(--text-muted)">${item.machine_name}</span>
+          </div>`).join('');
+      } catch (err) {
+        grid.innerHTML = `<p style="color:var(--danger);font-size:.85rem">載入失敗：${err.message}</p>`;
+      }
+    }
+  }
+
+  async function updateShipmentStatus(shipmentId) {
+    const select = document.getElementById(`status-${shipmentId}`);
+    const status = select.value;
+    try {
+      await apiFetch(`/api/admin/shipments/${shipmentId}/status`, {
+        method: 'PATCH',
+        body: { status },
+      });
+      showToast('出貨狀態已更新', 'success');
+      await loadShipments();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  loadUsers();
+</script>
+</body>
+</html>

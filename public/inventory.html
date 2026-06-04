@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的背包 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/index.html" class="nav-brand" title="機台列表">🎰 扭蛋樂園</a>
+  <div class="nav-links"></div>
+  <a href="/wallet.html" class="nav-balance" id="nav-balance" title="前往錢包儲值">載入中…</a>
+  <div class="nav-menu">
+    <button class="nav-menu-button" id="btn-user-menu" type="button" aria-expanded="false" aria-controls="user-menu">
+      我的功能 ▾
+    </button>
+    <div class="nav-menu-dropdown" id="user-menu">
+      <a href="/inventory.html">我的背包</a>
+      <a href="/shipments.html">出貨追蹤</a>
+      <button type="button" id="btn-logout">登出</button>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem">
+    <h1 class="page-title" style="margin-bottom:0">我的背包</h1>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <span id="item-count" style="color:var(--text-muted);font-size:.9rem"></span>
+      <button class="btn btn-outline btn-sm" id="btn-select-all">全選</button>
+      <button class="btn btn-outline btn-sm" id="btn-deselect-all" style="display:none">取消全選</button>
+    </div>
+  </div>
+
+  <div id="inventory-container"><div class="spinner"></div></div>
+
+  <!-- Ship toolbar (shown when items selected) -->
+  <div class="ship-toolbar hidden" id="ship-toolbar">
+    <div class="ship-toolbar-info">
+      已選擇 <strong id="selected-count">0</strong> 件公仔
+    </div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" id="btn-deselect-toolbar">取消選取</button>
+      <button class="btn btn-gold" id="btn-open-ship">📦 寄送出去</button>
+    </div>
+  </div>
+</main>
+
+<!-- Sell confirm modal -->
+<div class="modal-backdrop hidden" id="sell-modal">
+  <div class="modal">
+    <button class="modal-close" id="btn-close-sell">&times;</button>
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.5rem">確定要賣出？</p>
+    <img id="sell-img" src="" alt="" style="width:100px;height:100px">
+    <div class="modal-toy-name" id="sell-name"></div>
+    <p style="margin-top:.5rem;color:var(--text-muted);font-size:.9rem">
+      市值 <strong id="sell-orig-price" style="color:var(--gold)"></strong> 元 →
+      售回 <strong id="sell-price" style="color:var(--success)"></strong> 元（60%）
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="btn-cancel-sell">取消</button>
+      <button class="btn btn-danger" id="btn-confirm-sell">確認賣出</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shipping modal (multi-step) -->
+<div class="modal-backdrop hidden" id="ship-modal">
+  <div class="modal modal-lg" style="max-height:90vh;overflow-y:auto">
+    <button class="modal-close" id="btn-close-ship">&times;</button>
+
+    <!-- Step dots -->
+    <div class="modal-steps">
+      <div class="step-dot active" id="dot-1"></div>
+      <div class="step-dot" id="dot-2"></div>
+      <div class="step-dot" id="dot-3"></div>
+    </div>
+
+    <!-- Step 1: choose shipping type -->
+    <div id="ship-step-1">
+      <h2 style="font-size:1.1rem;margin-bottom:.25rem">選擇寄送方式</h2>
+      <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.5rem">共寄送 <strong id="ship-item-count">0</strong> 件公仔</p>
+      <div class="ship-type-grid">
+        <div class="ship-type-card active" id="card-home" onclick="selectShipType('home')">
+          <div class="ship-icon">🏠</div>
+          <div class="ship-label">宅配到府</div>
+          <div class="ship-fee">運費 90 元</div>
+          <div class="ship-limit">數量無限制</div>
+        </div>
+        <div class="ship-type-card" id="card-convenience" onclick="selectShipType('convenience')">
+          <div class="ship-icon">🏪</div>
+          <div class="ship-label">超商取件</div>
+          <div class="ship-fee" id="conv-fee-label">運費 60 元</div>
+          <div class="ship-limit">超過 20 件自動分包</div>
+        </div>
+      </div>
+      <div id="two-pkg-warning" class="two-pkg-note" style="display:none;text-align:center">
+        ⚠️ 超過 20 件，將以兩個包裹寄送，運費加倍（120 元）
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="goStep(2)">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: address (home) or convenience store chain + store name -->
+    <div id="ship-step-2" style="display:none">
+
+      <!-- 2A: Home delivery address -->
+      <div id="step2-home">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem">填寫收件地址</h2>
+        <div class="form-group">
+          <label for="ship-address">收件地址</label>
+          <input type="text" id="ship-address" placeholder="例：台北市中正區忠孝東路一段 1 號" autocomplete="street-address">
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="goStep(1)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(3)">下一步 →</button>
+        </div>
+      </div>
+
+      <!-- 2B: Convenience store — choose chain -->
+      <div id="step2-conv-chain" style="display:none">
+        <h2 style="font-size:1.1rem;margin-bottom:.3rem">請選擇超商</h2>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.9rem">選擇您要取件的超商品牌</p>
+        <div style="display:flex;flex-direction:column;gap:.5rem" id="conv-chain-list">
+          <div class="conv-chain-option" data-chain="7-11" onclick="selectChain('7-11')">
+            <span class="conv-chain-logo">🟠</span>
+            <span class="conv-chain-name">7-ELEVEN</span>
+            <span class="conv-chain-check hidden">✓</span>
+          </div>
+          <div class="conv-chain-option" data-chain="全家" onclick="selectChain('全家')">
+            <span class="conv-chain-logo">🔵</span>
+            <span class="conv-chain-name">FamilyMart 全家</span>
+            <span class="conv-chain-check hidden">✓</span>
+          </div>
+          <div class="conv-chain-option" data-chain="OK" onclick="selectChain('OK')">
+            <span class="conv-chain-logo">🟢</span>
+            <span class="conv-chain-name">OK 超商</span>
+            <span class="conv-chain-check hidden">✓</span>
+          </div>
+          <div class="conv-chain-option" data-chain="萊爾富" onclick="selectChain('萊爾富')">
+            <span class="conv-chain-logo">🔴</span>
+            <span class="conv-chain-name">萊爾富 Hi-Life</span>
+            <span class="conv-chain-check hidden">✓</span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="goStep(1)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goConvStore()">下一步 →</button>
+        </div>
+      </div>
+
+      <!-- 2C: Convenience store — enter store name -->
+      <div id="step2-conv-store" style="display:none">
+        <h2 style="font-size:1.1rem;margin-bottom:.3rem">請輸入門市</h2>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:.9rem">
+          <span id="conv-chain-selected-label" style="font-weight:600;color:var(--text)"></span> 門市
+        </p>
+        <div class="form-group">
+          <label for="conv-store-name">門市名稱</label>
+          <input type="text" id="conv-store-name" placeholder="例：台北信義門市">
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="showConvChain()">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(3)">下一步 →</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Step 3: payment -->
+    <div id="ship-step-3" style="display:none">
+      <h2 style="font-size:1.1rem;margin-bottom:.75rem">選擇付款方式</h2>
+
+      <div class="fee-summary" id="fee-summary"></div>
+
+      <div class="pay-type-grid">
+        <div class="pay-type-card active" id="pay-balance" onclick="selectPayType('balance')">
+          <div class="pay-icon">💰</div>
+          <div class="pay-label">從餘額扣除</div>
+        </div>
+        <div class="pay-type-card" id="pay-cc" onclick="selectPayType('credit_card')">
+          <div class="pay-icon">💳</div>
+          <div class="pay-label">信用卡付款</div>
+        </div>
+      </div>
+
+      <!-- Credit card fields (hidden until selected) -->
+      <div class="cc-fields" id="cc-fields" style="display:none">
+        <div class="form-group" style="margin-bottom:0">
+          <label>卡號</label>
+          <input type="text" id="cc-number" placeholder="1234 5678 9012 3456" maxlength="19" autocomplete="cc-number">
+        </div>
+        <div class="cc-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label>有效期限</label>
+            <input type="text" id="cc-expiry" placeholder="MM/YY" maxlength="5" autocomplete="cc-exp">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>CVV</label>
+            <input type="text" id="cc-cvv" placeholder="123" maxlength="4" autocomplete="cc-csc">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:1.25rem">
+        <button class="btn btn-outline" onclick="goStep(2)">← 上一步</button>
+        <button class="btn btn-gold" id="btn-confirm-ship">確認寄送 📦</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  initNav();
+
+  // ── State ──────────────────────────────────────────────────
+  let allItems      = [];  // all owned items from API
+  let selectedIds   = new Set(); // inventory_ids of selected items
+  let pendingSell   = null;
+  let shipType      = 'home';
+  let payType       = 'balance';
+  let convChain     = '';   // selected convenience store chain
+
+  const FEE_HOME        = 90;
+  const FEE_CONVENIENCE = 60;
+  const CONV_LIMIT      = 20;
+
+  // ── Sell modal ─────────────────────────────────────────────
+  document.getElementById('btn-close-sell').addEventListener('click', closeSellModal);
+  document.getElementById('btn-cancel-sell').addEventListener('click', closeSellModal);
+  document.getElementById('sell-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('sell-modal')) closeSellModal();
+  });
+
+  function closeSellModal() {
+    document.getElementById('sell-modal').classList.add('hidden');
+    pendingSell = null;
+  }
+
+  function openSellModal(item) {
+    pendingSell = item;
+    document.getElementById('sell-img').src              = item.image_url;
+    document.getElementById('sell-name').textContent     = item.name;
+    document.getElementById('sell-orig-price').textContent = item.price.toLocaleString();
+    document.getElementById('sell-price').textContent    = Math.round(item.price * 0.6 * 100 / 100).toLocaleString();
+    document.getElementById('sell-modal').classList.remove('hidden');
+  }
+
+  document.getElementById('btn-confirm-sell').addEventListener('click', async () => {
+    if (!pendingSell) return;
+    const btn = document.getElementById('btn-confirm-sell');
+    btn.disabled = true;
+    try {
+      const { message, balance } = await apiFetch(`/api/inventory/${pendingSell.inventory_id}/sell`, { method: 'POST' });
+      document.getElementById('nav-balance').textContent = `💰 ${balance.toLocaleString()} 元`;
+      showToast(message, 'success');
+      closeSellModal();
+      selectedIds.delete(pendingSell.inventory_id);
+      await loadInventory();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ── Ship modal helpers ─────────────────────────────────────
+  function selectShipType(type) {
+    shipType = type;
+    document.getElementById('card-home').classList.toggle('active', type === 'home');
+    document.getElementById('card-convenience').classList.toggle('active', type === 'convenience');
+    updateConvWarning();
+  }
+
+  function updateConvWarning() {
+    const n   = selectedIds.size;
+    const warn = document.getElementById('two-pkg-warning');
+    const convFee = document.getElementById('conv-fee-label');
+    if (shipType === 'convenience' && n > CONV_LIMIT) {
+      warn.style.display = 'block';
+      convFee.textContent = `運費 120 元（x2）`;
+    } else {
+      warn.style.display = 'none';
+      convFee.textContent = `運費 60 元`;
+    }
+  }
+
+  function selectPayType(type) {
+    payType = type;
+    document.getElementById('pay-balance').classList.toggle('active', type === 'balance');
+    document.getElementById('pay-cc').classList.toggle('active', type === 'credit_card');
+    document.getElementById('cc-fields').style.display = type === 'credit_card' ? 'flex' : 'none';
+  }
+
+  function calcFee() {
+    const n = selectedIds.size;
+    if (shipType === 'home') return { fee: FEE_HOME, packages: 1 };
+    return n > CONV_LIMIT
+      ? { fee: FEE_CONVENIENCE * 2, packages: 2 }
+      : { fee: FEE_CONVENIENCE, packages: 1 };
+  }
+
+  // ── Convenience store chain selection ─────────────────────
+  function selectChain(chain) {
+    convChain = chain;
+    document.querySelectorAll('.conv-chain-option').forEach(el => {
+      const active = el.dataset.chain === chain;
+      el.classList.toggle('active', active);
+      el.querySelector('.conv-chain-check').classList.toggle('hidden', !active);
+    });
+  }
+
+  function goConvStore() {
+    if (!convChain) { showToast('請選擇超商品牌', 'error'); return; }
+    document.getElementById('step2-conv-chain').style.display = 'none';
+    document.getElementById('conv-chain-selected-label').textContent = convChain;
+    document.getElementById('conv-store-name').value = '';
+    document.getElementById('step2-conv-store').style.display = '';
+  }
+
+  function showConvChain() {
+    document.getElementById('step2-conv-store').style.display = 'none';
+    document.getElementById('step2-conv-chain').style.display = '';
+  }
+
+  // ── Step navigation ────────────────────────────────────────
+  function goStep(n) {
+    // Validate before advancing to step 3
+    if (n === 3) {
+      if (shipType === 'home') {
+        if (!document.getElementById('ship-address').value.trim()) {
+          showToast('請填寫收件地址', 'error'); return;
+        }
+      } else {
+        if (!convChain) { showToast('請選擇超商品牌', 'error'); return; }
+        if (!document.getElementById('conv-store-name').value.trim()) {
+          showToast('請輸入門市名稱', 'error'); return;
+        }
+      }
+    }
+
+    [1, 2, 3].forEach(i => {
+      document.getElementById(`ship-step-${i}`).style.display = i === n ? '' : 'none';
+      const dot = document.getElementById(`dot-${i}`);
+      dot.className = 'step-dot' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+
+    // When entering step 2, show the correct sub-view
+    if (n === 2) {
+      document.getElementById('step2-home').style.display         = shipType === 'home' ? '' : 'none';
+      document.getElementById('step2-conv-chain').style.display   = shipType === 'convenience' ? '' : 'none';
+      document.getElementById('step2-conv-store').style.display   = 'none';
+    }
+
+    if (n === 3) renderFeeSummary();
+  }
+
+  function getFullAddress() {
+    if (shipType === 'home') {
+      return document.getElementById('ship-address').value.trim();
+    }
+    const store = document.getElementById('conv-store-name').value.trim();
+    return `${convChain} ${store}`;
+  }
+
+  function renderFeeSummary() {
+    const { fee, packages } = calcFee();
+    const typeLabel = shipType === 'home' ? '宅配到府' : `超商取件（${convChain}）`;
+    const addr      = getFullAddress();
+    let html = `
+      <div class="fee-row"><span>寄送方式</span><span>${typeLabel}</span></div>
+      <div class="fee-row"><span>${shipType === 'home' ? '地址' : '門市'}</span><span style="max-width:200px;text-align:right;word-break:break-all">${addr}</span></div>
+      <div class="fee-row"><span>公仔數量</span><span>${selectedIds.size} 件</span></div>`;
+    if (packages === 2) {
+      html += `<div class="fee-row"><span>包裹數量</span><span style="color:#fb923c">2 個（分包寄送）</span></div>`;
+    }
+    html += `<div class="fee-row total"><span>運費合計</span><span class="fee-val">${fee} 元</span></div>`;
+    document.getElementById('fee-summary').innerHTML = html;
+  }
+
+  function openShipModal() {
+    if (selectedIds.size === 0) { showToast('請先選擇公仔', 'error'); return; }
+    document.getElementById('ship-item-count').textContent = selectedIds.size;
+    shipType = 'home';
+    payType  = 'balance';
+    document.getElementById('card-home').classList.add('active');
+    document.getElementById('card-convenience').classList.remove('active');
+    document.getElementById('pay-balance').classList.add('active');
+    document.getElementById('pay-cc').classList.remove('active');
+    document.getElementById('cc-fields').style.display = 'none';
+    document.getElementById('ship-address').value = '';
+    document.getElementById('conv-store-name').value = '';
+    convChain = '';
+    document.querySelectorAll('.conv-chain-option').forEach(el => {
+      el.classList.remove('active');
+      el.querySelector('.conv-chain-check').classList.add('hidden');
+    });
+    updateConvWarning();
+    goStep(1);
+    document.getElementById('ship-modal').classList.remove('hidden');
+  }
+
+  function closeShipModal() {
+    document.getElementById('ship-modal').classList.add('hidden');
+  }
+
+  document.getElementById('btn-close-ship').addEventListener('click', closeShipModal);
+  document.getElementById('ship-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('ship-modal')) closeShipModal();
+  });
+
+  document.getElementById('btn-open-ship').addEventListener('click', openShipModal);
+
+  // Format CC number with spaces
+  document.getElementById('cc-number').addEventListener('input', e => {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 16);
+    e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+  });
+  document.getElementById('cc-expiry').addEventListener('input', e => {
+    let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+    e.target.value = v;
+  });
+
+  // Confirm shipping
+  document.getElementById('btn-confirm-ship').addEventListener('click', async () => {
+    const btn  = document.getElementById('btn-confirm-ship');
+    const { fee } = calcFee();
+    const body = {
+      inventory_ids: [...selectedIds],
+      shipping_type: shipType,
+      address:       getFullAddress(),
+      payment_method: payType,
+    };
+    if (payType === 'credit_card') {
+      body.card_number = document.getElementById('cc-number').value.trim();
+      body.card_expiry = document.getElementById('cc-expiry').value.trim();
+      body.card_cvv    = document.getElementById('cc-cvv').value.trim();
+    }
+    btn.disabled = true;
+    try {
+      const result = await apiFetch('/api/shipments', { method: 'POST', body });
+      if (result.balance !== null && result.balance !== undefined) {
+        document.getElementById('nav-balance').textContent = `💰 ${result.balance.toLocaleString()} 元`;
+      }
+      showToast(result.message, 'success');
+      closeShipModal();
+      selectedIds.clear();
+      updateToolbar();
+      await loadInventory();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ── Selection logic ────────────────────────────────────────
+  function toggleSelect(item) {
+    if (isShipped(item)) return; // can't re-select shipped items
+    if (selectedIds.has(item.inventory_id)) {
+      selectedIds.delete(item.inventory_id);
+    } else {
+      selectedIds.add(item.inventory_id);
+    }
+    renderCards();
+    updateToolbar();
+  }
+
+  function isShipped(item) {
+    return item.shipment_id != null;
+  }
+
+  function updateToolbar() {
+    const toolbar   = document.getElementById('ship-toolbar');
+    const countEl   = document.getElementById('selected-count');
+    const selectBtn = document.getElementById('btn-select-all');
+    const deselectBtn = document.getElementById('btn-deselect-all');
+    const n = selectedIds.size;
+    toolbar.classList.toggle('hidden', n === 0);
+    countEl.textContent = n;
+    const selectableCount = allItems.filter(i => !isShipped(i)).length;
+    if (n > 0 && n === selectableCount) {
+      selectBtn.style.display = 'none';
+      deselectBtn.style.display = '';
+    } else {
+      selectBtn.style.display = '';
+      deselectBtn.style.display = 'none';
+    }
+  }
+
+  document.getElementById('btn-select-all').addEventListener('click', () => {
+    allItems.filter(i => !isShipped(i)).forEach(i => selectedIds.add(i.inventory_id));
+    renderCards();
+    updateToolbar();
+  });
+  document.getElementById('btn-deselect-all').addEventListener('click', deselect);
+  document.getElementById('btn-deselect-toolbar').addEventListener('click', deselect);
+
+  function deselect() {
+    selectedIds.clear();
+    renderCards();
+    updateToolbar();
+  }
+
+  // ── Render ─────────────────────────────────────────────────
+  function rarityClass(r) { return `rarity-${r}`; }
+
+  function renderCards() {
+    const grid = document.getElementById('inv-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    allItems.forEach(item => {
+      const shipped   = isShipped(item);
+      const selected  = selectedIds.has(item.inventory_id);
+      const sellAmt   = Math.round(item.price * 0.6 * 100) / 100;
+
+      const card = document.createElement('div');
+      card.className = 'inv-card selectable' +
+        (selected  ? ' selected'    : '') +
+        (shipped   ? ' shipped-out' : '');
+
+      card.innerHTML = `
+        <div class="inv-rarity-bar ${item.rarity}"></div>
+        <div class="select-check">${selected ? '✓' : ''}</div>
+        <img src="${item.image_url}" alt="${item.name}" loading="lazy">
+        <span class="rarity-badge ${rarityClass(item.rarity)}">${item.rarity}</span>
+        <div class="inv-card-name">${item.name}</div>
+        <div class="inv-card-machine">${item.machine_name}</div>
+        ${shipped ? `<span class="ship-tag">📦 出貨中</span>` : `
+          <div class="inv-card-price">市值 ${item.price.toLocaleString()} 元</div>
+          <div class="inv-card-sell">回收價 ${sellAmt.toLocaleString()} 元</div>
+          <button class="btn btn-outline btn-sm sell-btn" style="margin-top:.25rem">賣回網站</button>`}`;
+
+      if (!shipped) {
+        card.addEventListener('click', e => {
+          if (e.target.classList.contains('sell-btn')) return;
+          toggleSelect(item);
+        });
+        card.querySelector('.sell-btn').addEventListener('click', e => {
+          e.stopPropagation();
+          openSellModal(item);
+        });
+      }
+
+      grid.appendChild(card);
+    });
+  }
+
+  async function loadInventory() {
+    const container = document.getElementById('inventory-container');
+    container.innerHTML = '<div class="spinner"></div>';
+    try {
+      const items = await apiFetch('/api/inventory');
+      allItems = items;
+
+      const countEl = document.getElementById('item-count');
+      const ownedCount    = items.filter(i => !i.shipment_id).length;
+      const shippedCount  = items.filter(i => i.shipment_id).length;
+      countEl.textContent = `共 ${items.length} 件` + (shippedCount ? `（${shippedCount} 件出貨中）` : '');
+
+      document.getElementById('btn-select-all').style.display = ownedCount > 0 ? '' : 'none';
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p style="font-size:3rem">🎒</p>
+            <p>背包是空的，快去抽扭蛋吧！</p>
+            <a href="/index.html" class="btn btn-primary" style="margin-top:1rem">前往機台</a>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = '<div class="inventory-grid" id="inv-grid"></div>';
+      renderCards();
+    } catch (err) {
+      if (err.status === 401) return;
+      container.innerHTML = `<p style="color:var(--danger)">載入失敗：${err.message}</p>`;
+    }
+  }
+
+  loadInventory();
+</script>
+</body>
+</html>

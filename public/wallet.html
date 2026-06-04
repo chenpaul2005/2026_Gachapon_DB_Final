@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的錢包 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/index.html" class="nav-brand" title="機台列表">🎰 扭蛋樂園</a>
+  <div class="nav-links"></div>
+  <a href="/wallet.html" class="nav-balance" id="nav-balance" title="前往錢包儲值">載入中…</a>
+  <div class="nav-menu">
+    <button class="nav-menu-button" id="btn-user-menu" type="button" aria-expanded="false" aria-controls="user-menu">
+      我的功能 ▾
+    </button>
+    <div class="nav-menu-dropdown" id="user-menu">
+      <a href="/inventory.html">我的背包</a>
+      <a href="/shipments.html">出貨追蹤</a>
+      <button type="button" id="btn-logout">登出</button>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <h1 class="page-title">我的錢包</h1>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem">
+
+    <!-- Balance card -->
+    <div class="card">
+      <p style="color:var(--text-muted);margin-bottom:.5rem">目前餘額</p>
+      <div class="balance-display" id="balance-display">—</div>
+      <p style="color:var(--text-muted);font-size:.85rem;margin-top:.5rem">元</p>
+    </div>
+
+    <!-- Deposit card -->
+    <div class="card">
+      <h2 style="margin-bottom:1rem;font-size:1.1rem">儲值</h2>
+      <form id="deposit-form">
+        <div class="form-group">
+          <label for="amount">儲值金額（元）</label>
+          <input type="number" id="amount" name="amount" placeholder="例：500" min="1" max="1000000" required>
+        </div>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">
+          <button type="button" class="btn btn-outline btn-sm quick-btn" data-val="100">+100</button>
+          <button type="button" class="btn btn-outline btn-sm quick-btn" data-val="500">+500</button>
+          <button type="button" class="btn btn-outline btn-sm quick-btn" data-val="1000">+1000</button>
+          <button type="button" class="btn btn-outline btn-sm quick-btn" data-val="5000">+5000</button>
+        </div>
+        <button type="submit" class="btn btn-gold" style="width:100%">💳 立即儲值</button>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- Transaction history -->
+  <div class="card" style="margin-top:1.5rem">
+    <h2 style="margin-bottom:1rem;font-size:1.1rem">交易記錄</h2>
+    <ul class="tx-list" id="tx-list">
+      <li><div class="spinner"></div></li>
+    </ul>
+  </div>
+</main>
+
+<script src="/js/api.js"></script>
+<script>
+  initNav();
+
+  const TYPE_LABEL = { deposit: '儲值', pull: '扭蛋', sell: '賣出', shipping: '運費' };
+
+  async function loadWallet() {
+    try {
+      const { user, transactions } = await apiFetch('/api/wallet');
+      document.getElementById('balance-display').textContent = user.balance.toLocaleString();
+
+      const list = document.getElementById('tx-list');
+      if (transactions.length === 0) {
+        list.innerHTML = '<li style="color:var(--text-muted);text-align:center;padding:1rem">尚無交易記錄</li>';
+        return;
+      }
+      list.innerHTML = transactions.map(tx => {
+        const isPos = tx.amount > 0;
+        const amountStr = (isPos ? '+' : '') + tx.amount.toLocaleString() + ' 元';
+        const toyInfo = tx.toy_name ? ` · ${tx.toy_name}` : '';
+        const date = new Date(tx.created_at + 'Z').toLocaleString('zh-TW');
+        return `
+          <li class="tx-item">
+            <span class="tx-badge tx-${tx.type}">${TYPE_LABEL[tx.type] || tx.type}</span>
+            <span style="color:var(--text-muted);font-size:.82rem">${date}${toyInfo}</span>
+            <span class="tx-amount ${isPos ? 'pos' : 'neg'}">${amountStr}</span>
+          </li>`;
+      }).join('');
+    } catch (err) {
+      if (err.status === 401) return;
+      showToast('載入失敗：' + err.message, 'error');
+    }
+  }
+
+  // Quick-fill buttons
+  document.querySelectorAll('.quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('amount').value = btn.dataset.val;
+    });
+  });
+
+  document.getElementById('deposit-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    const amount = Number(document.getElementById('amount').value);
+    btn.disabled = true;
+    try {
+      const { balance } = await apiFetch('/api/wallet/deposit', {
+        method: 'POST',
+        body: { amount },
+      });
+      document.getElementById('balance-display').textContent = balance.toLocaleString();
+      document.getElementById('nav-balance').textContent = `💰 ${balance.toLocaleString()} 元`;
+      showToast(`儲值成功！目前餘額 ${balance.toLocaleString()} 元`, 'success');
+      e.target.reset();
+      loadWallet();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  loadWallet();
+</script>
+</body>
+</html>

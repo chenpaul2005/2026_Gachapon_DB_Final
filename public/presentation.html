@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>口試簡報 — 扭蛋樂園</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body class="pres-body">
+
+<nav>
+  <a href="/index.html" class="nav-brand" title="機台列表">🎰 扭蛋樂園</a>
+  <div class="nav-links">
+    <a href="/presentation.html" class="nav-pres">口試簡報</a>
+  </div>
+  <a href="/wallet.html" class="nav-balance" id="nav-balance" title="前往錢包儲值">載入中…</a>
+  <div class="nav-menu">
+    <button class="nav-menu-button" id="btn-user-menu" type="button" aria-expanded="false" aria-controls="user-menu">
+      我的功能 ▾
+    </button>
+    <div class="nav-menu-dropdown" id="user-menu">
+      <a href="/inventory.html">我的背包</a>
+      <a href="/shipments.html">出貨追蹤</a>
+      <button type="button" id="btn-logout">登出</button>
+    </div>
+  </div>
+</nav>
+
+<div class="pres-shell">
+  <aside class="pres-toc" id="pres-toc">
+    <h2>簡報目錄</h2>
+  </aside>
+
+  <div class="pres-stage">
+    <div class="pres-toolbar">
+      <span class="pres-progress" id="pres-progress">第 1 / 16 頁</span>
+      <div class="pres-controls">
+        <button class="btn btn-outline btn-sm" id="pres-prev" type="button">← 上一頁</button>
+        <button class="btn btn-primary btn-sm" id="pres-next" type="button">下一頁 →</button>
+      </div>
+    </div>
+
+    <section class="pres-slide active" data-title="封面">
+      <div class="pres-card">
+        <h2>扭蛋樂園 Gachapon Roulette</h2>
+        <p class="pres-lead">資料庫 × 全端整合 — 期末專案口試簡報</p>
+        <p>線上扭蛋網站：使用者儲值、抽獎、管理背包、售回或實體出貨，所有資料經由 Node.js 後端寫入 SQLite。</p>
+        <div class="pres-stats">
+          <div class="pres-stat"><strong>9</strong><span>HTML 頁面</span></div>
+          <div class="pres-stat"><strong>7</strong><span>資料表</span></div>
+          <div class="pres-stat"><strong>20+</strong><span>API 端點</span></div>
+          <div class="pres-stat"><strong>9</strong><span>主要功能模組</span></div>
+        </div>
+        <p style="margin-top:1rem;font-size:.85rem">操作：← → 鍵或右側按鈕切換投影片 · 左側目錄可跳頁</p>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="專案定位">
+      <div class="pres-card">
+        <h2>這是什麼？如何運作？</h2>
+        <h3>專案定位</h3>
+        <p>「扭蛋樂園」模擬線上扭蛋機體驗：每台機台有多款公仔（不同稀有度與權重），使用者以帳戶餘額付費抽獎，獲得的公仔進入背包，可選擇以市價 60% 賣回平台，或付運費寄送到府／超商。</p>
+        <h3>核心流程</h3>
+        <div class="pres-flow">
+          <span>註冊／登入</span><span class="arrow">→</span>
+          <span>錢包儲值</span><span class="arrow">→</span>
+          <span>選機台抽獎</span><span class="arrow">→</span>
+          <span>背包管理</span><span class="arrow">→</span>
+          <span>售出或出貨</span>
+        </div>
+        <h3>為何符合課程要求</h3>
+        <ul>
+          <li><strong>前端</strong>：多個 HTML 表單與互動 UI（無 React/Vue，純 HTML/CSS/JS）</li>
+          <li><strong>後端</strong>：Express 接收 JSON，參數化 SQL 寫入資料庫</li>
+          <li><strong>資料庫</strong>：SQLite 正規化設計、外鍵、交易（transaction）保證一致性</li>
+          <li><strong>可現場演示</strong>：非靜態截圖，口試可即時操作完整流程</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="技術架構">
+      <div class="pres-card">
+        <h2>技術架構</h2>
+        <table class="pres-table">
+          <thead><tr><th>層級</th><th>技術</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>前端</td><td>HTML5 / CSS3 / Vanilla JS</td><td>繁體中文 UI、共用 <code>api.js</code>、Session Cookie</td></tr>
+            <tr><td>後端</td><td>Node.js + Express 4</td><td>REST API、<code>express-session</code>、路由模組化</td></tr>
+            <tr><td>資料庫</td><td>SQLite + better-sqlite3</td><td>同步查詢、<code>db.transaction()</code> 原子操作</td></tr>
+            <tr><td>安全</td><td>bcrypt + 參數化查詢</td><td>密碼雜湊；防 SQL injection</td></tr>
+            <tr><td>遷移</td><td>migrate.sql</td><td>SQLite 不支援 ALTER COLUMN 時以 temp-rename 重建表</td></tr>
+          </tbody>
+        </table>
+        <div class="pres-flow" style="margin-top:1.25rem">
+          <span>瀏覽器 HTML</span><span class="arrow">→</span>
+          <span>fetch + JSON</span><span class="arrow">→</span>
+          <span>Express 路由</span><span class="arrow">→</span>
+          <span>better-sqlite3</span><span class="arrow">→</span>
+          <span>gachapon.db</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="評分對應">
+      <div class="pres-card">
+        <h2>期末評分項目對應</h2>
+        <p>依 <strong>期末專題說明</strong> 評分比重說明本專案如何滿足：</p>
+        <table class="pres-table">
+          <thead><tr><th>項目</th><th>比重</th><th>本專案對應</th></tr></thead>
+          <tbody>
+            <tr><td>前端設計與功能</td><td>10%</td><td>9 個頁面、表單（註冊／儲值／出貨）、轉盤動畫、多步驟出貨精靈</td></tr>
+            <tr><td>資料庫設計</td><td>20%</td><td>7 表、外鍵、M:N 出貨明細、CHECK 約束、遷移策略</td></tr>
+            <tr><td>前後端整合</td><td>20%</td><td>所有使用者操作經 API 寫入 DB（抽獎、售回、出貨、儲值）</td></tr>
+            <tr><td>口試答辯</td><td>50%</td><td>本簡報頁 + ER 圖 + 實際 SQL + 可展示真實資料列</td></tr>
+            <tr><td>加分（選做）</td><td>+extra</td><td>管理員後台、物流狀態、加權隨機、UI 打磨</td></tr>
+          </tbody>
+        </table>
+        <h3>必交項目檢查</h3>
+        <ul>
+          <li>至少一個可瀏覽的 HTML 頁面 — <strong>有（多頁）</strong></li>
+          <li>至少一個 SQLite 表且能寫入 — <strong>有（7 表）</strong></li>
+          <li>前端 → 後端 → 資料庫完整資料流 — <strong>有（可現場 demo）</strong></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="頁面一覽">
+      <div class="pres-card">
+        <h2>網站頁面一覽（共 9 頁）</h2>
+        <table class="pres-table">
+          <thead><tr><th>頁面</th><th>路徑</th><th>需登入</th><th>功能</th></tr></thead>
+          <tbody>
+            <tr><td>登入</td><td>login.html</td><td>否</td><td>帳密登入、建立 Session</td></tr>
+            <tr><td>註冊</td><td>register.html</td><td>否</td><td>新帳號、bcrypt 雜湊寫入 users</td></tr>
+            <tr><td>機台列表</td><td>index.html</td><td>是</td><td>顯示所有扭蛋機與價格</td></tr>
+            <tr><td>抽獎轉盤</td><td>gacha.html</td><td>是</td><td>加權抽獎動畫、扣款、寫入背包</td></tr>
+            <tr><td>我的背包</td><td>inventory.html</td><td>是</td><td>檢視公仔、售回、多選出貨</td></tr>
+            <tr><td>我的錢包</td><td>wallet.html</td><td>是</td><td>儲值、交易流水帳</td></tr>
+            <tr><td>出貨追蹤</td><td>shipments.html</td><td>是</td><td>物流四階段進度條</td></tr>
+            <tr><td>管理後台</td><td>admin.html</td><td>是（管理員）</td><td>全站使用者／出貨管理</td></tr>
+            <tr><td>口試簡報</td><td>presentation.html</td><td>是</td><td>本頁：取代傳統 PPT 的專案說明</td></tr>
+          </tbody>
+        </table>
+        <p>導覽列：Logo → 首頁；餘額 → 錢包；「我的功能」下拉 → 背包／出貨／登出。</p>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="功能模組">
+      <div class="pres-card">
+        <h2>功能模組（9 項）</h2>
+        <p>
+          <span class="pres-tag">身分驗證</span>
+          <span class="pres-tag">錢包儲值</span>
+          <span class="pres-tag">機台瀏覽</span>
+          <span class="pres-tag">伺服器端抽獎</span>
+          <span class="pres-tag">背包</span>
+          <span class="pres-tag">60% 售回</span>
+          <span class="pres-tag">出貨下單</span>
+          <span class="pres-tag">物流追蹤</span>
+          <span class="pres-tag">管理員後台</span>
+        </p>
+        <ul>
+          <li><strong>抽獎</strong>：權重隨機在伺服器計算，客戶端無法篡改結果</li>
+          <li><strong>售回</strong>：<code>user_inventory.status → sold</code>，餘額 + 交易紀錄同一 transaction</li>
+          <li><strong>出貨</strong>：宅配 90 元／超商 60 元；超商超過 20 件運費加倍、拆兩包裹</li>
+          <li><strong>管理員</strong>：檢視全站餘額與背包、更新任意出貨單狀態</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="資料庫運用">
+      <div class="pres-card">
+        <h2>資料庫如何被運用</h2>
+        <table class="pres-table">
+          <thead><tr><th>資料表</th><th>用途</th><th>典型操作</th></tr></thead>
+          <tbody>
+            <tr><td>users</td><td>帳號、餘額、管理員</td><td>註冊 INSERT；抽獎/出貨 UPDATE balance</td></tr>
+            <tr><td>machines</td><td>機台主檔</td><td>首頁 SELECT 列表</td></tr>
+            <tr><td>toys</td><td>公仔款式與權重</td><td>JOIN 抽獎池、顯示稀有度</td></tr>
+            <tr><td>user_inventory</td><td>使用者持有的公仔實例</td><td>抽獎 INSERT；售回 UPDATE status</td></tr>
+            <tr><td>transactions</td><td>金流流水帳</td><td>deposit / pull / sell / shipping</td></tr>
+            <tr><td>shipments</td><td>出貨單主檔</td><td>建立訂單、追蹤 status</td></tr>
+            <tr><td>shipment_items</td><td>出貨 M:N 關聯</td><td>一單多件；inventory_id UNIQUE</td></tr>
+          </tbody>
+        </table>
+        <h3>完整性與效能考量</h3>
+        <ul>
+          <li><code>PRAGMA foreign_keys = ON</code> 保證參照完整性</li>
+          <li>抽獎、售回、出貨使用 <code>db.transaction()</code>（ACID）</li>
+          <li>餘額存在 users，歷史在 transactions — 方便錢包頁一次查詢</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="口試 Q1">
+      <div class="pres-card">
+        <h2>口試必考 Q1 — 畫出並說明 ER 圖</h2>
+        <p class="pres-lead">標示實體、屬性、關係、基數（1:1 / 1:N / M:N），並說明為何這樣設計。</p>
+        <table class="pres-table">
+          <thead><tr><th>關聯</th><th>基數</th><th>實作</th></tr></thead>
+          <tbody>
+            <tr><td>使用者 — 背包項目</td><td>1 : N</td><td>user_inventory.user_id → users</td></tr>
+            <tr><td>扭蛋機 — 公仔</td><td>1 : N</td><td>toys.machine_id → machines</td></tr>
+            <tr><td>出貨單 — 背包項目</td><td>M : N</td><td>透過 shipment_items；inventory_id UNIQUE</td></tr>
+          </tbody>
+        </table>
+        <p>完整對照表見 <code>docs/ER-diagram.md</code>「關聯與基數」一節。</p>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="ER 圖 Mermaid">
+      <div class="pres-card">
+        <h2>實體關聯圖（ER Diagram）</h2>
+        <p>以下與 <code>docs/ER-diagram.md</code> 一致，展示實體、屬性、關聯與基數。</p>
+        <div class="pres-diagram">
+          <div class="mermaid" id="er-diagram" data-source="er-diagram-source"></div>
+        </div>
+        <script type="text/plain" id="er-diagram-source">erDiagram
+USERS ||--o{ USER_INVENTORY : "1:N owns"
+USERS ||--o{ TRANSACTIONS : "1:N records"
+USERS ||--o{ SHIPMENTS : "1:N places"
+MACHINES ||--|{ TOYS : "1:N contains"
+TOYS ||--o{ USER_INVENTORY : "1:N pulled_as"
+SHIPMENTS ||--|{ SHIPMENT_ITEMS : "1:N includes"
+USER_INVENTORY ||--o{ SHIPMENT_ITEMS : "M:N ships_in"
+TOYS }o--o{ TRANSACTIONS : "optional FK"
+USER_INVENTORY }o--o{ TRANSACTIONS : "optional FK"
+USERS {
+  int user_id PK
+  string username UK
+  real balance
+}
+MACHINES {
+  int machine_id PK
+  string name
+  real pull_price
+}
+TOYS {
+  int toy_id PK
+  int machine_id FK
+  string rarity
+  int weight
+}
+USER_INVENTORY {
+  int inventory_id PK
+  int user_id FK
+  int toy_id FK
+  string status
+}
+TRANSACTIONS {
+  int transaction_id PK
+  int user_id FK
+  string type
+  real amount
+}
+SHIPMENTS {
+  int shipment_id PK
+  int user_id FK
+  string status
+}
+SHIPMENT_ITEMS {
+  int shipment_item_id PK
+  int shipment_id FK
+  int inventory_id FK
+}</script>
+        <table class="pres-table" style="margin-top:1rem">
+          <thead><tr><th>資料表</th><th>中文實體</th></tr></thead>
+          <tbody>
+            <tr><td>users</td><td>使用者</td></tr>
+            <tr><td>machines</td><td>扭蛋機</td></tr>
+            <tr><td>toys</td><td>公仔</td></tr>
+            <tr><td>user_inventory</td><td>背包項目</td></tr>
+            <tr><td>transactions</td><td>交易紀錄</td></tr>
+            <tr><td>shipments</td><td>出貨單</td></tr>
+            <tr><td>shipment_items</td><td>出貨明細（inventory_id UNIQUE）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="ER 關係總覽">
+      <div class="pres-card">
+        <h2>ER 關係總覽（概念圖）</h2>
+        <p>與上一頁相同關聯結構，省略欄位細節，便於說明關聯與基數。</p>
+        <div class="pres-diagram pres-diagram-lg">
+          <div class="mermaid" id="er-diagram-simple" data-source="er-diagram-simple-source"></div>
+        </div>
+        <script type="text/plain" id="er-diagram-simple-source">erDiagram
+USERS ||--o{ USER_INVENTORY : "1:N owns"
+USERS ||--o{ TRANSACTIONS : "1:N records"
+USERS ||--o{ SHIPMENTS : "1:N places"
+MACHINES ||--|{ TOYS : "1:N contains"
+TOYS ||--o{ USER_INVENTORY : "1:N pulled_as"
+SHIPMENTS ||--|{ SHIPMENT_ITEMS : "1:N includes"
+USER_INVENTORY ||--o{ SHIPMENT_ITEMS : "M:N ships_in"
+TOYS }o--o{ TRANSACTIONS : "optional FK"
+USER_INVENTORY }o--o{ TRANSACTIONS : "optional FK"</script>
+        <table class="pres-table pres-table-compact">
+          <thead><tr><th>關聯</th><th>基數</th></tr></thead>
+          <tbody>
+            <tr><td>使用者 — 背包</td><td>1 : N</td></tr>
+            <tr><td>使用者 — 交易紀錄</td><td>1 : N</td></tr>
+            <tr><td>使用者 — 出貨單</td><td>1 : N</td></tr>
+            <tr><td>扭蛋機 — 公仔</td><td>1 : N</td></tr>
+            <tr><td>公仔 — 背包</td><td>1 : N</td></tr>
+            <tr><td>出貨單 — 出貨明細 — 背包</td><td>M : N（經明細解開）</td></tr>
+          </tbody>
+        </table>
+        <div class="pres-entity-legend">
+          <span class="pres-tag">USERS 使用者</span>
+          <span class="pres-tag">MACHINES 扭蛋機</span>
+          <span class="pres-tag">TOYS 公仔</span>
+          <span class="pres-tag">USER_INVENTORY 背包</span>
+          <span class="pres-tag">TRANSACTIONS 交易</span>
+          <span class="pres-tag">SHIPMENTS 出貨</span>
+          <span class="pres-tag">SHIPMENT_ITEMS 明細</span>
+        </div>
+        <h3>設計理由</h3>
+        <ul>
+          <li><strong>toys vs user_inventory</strong>：款式 vs 抽到的那一筆實例</li>
+          <li><strong>shipment_items</strong>：標準 M:N 解開；UNIQUE(inventory_id) 防重複出貨</li>
+          <li><strong>transactions.toy_id 可 NULL</strong>：儲值不需綁公仔</li>
+          <li><strong>is_admin</strong>：使用者屬性即可，不必另開角色表</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="口試 Q2">
+      <div class="pres-card">
+        <h2>口試必考 Q2 — 專案實際使用的 SQL</h2>
+        <p class="pres-lead">選一個會顯示資料的頁面，說明對應 SELECT 為何這樣寫（JOIN、WHERE、ORDER BY）。</p>
+
+        <h3>範例 A：首頁機台列表（index.html）</h3>
+        <p>對應 <code>routes/machines.js</code> — 顯示所有機台：</p>
+        <pre class="pres-code">SELECT * FROM machines ORDER BY machine_id</pre>
+
+        <h3>範例 B：我的背包（inventory.html）</h3>
+        <p>多表 JOIN + 左連出貨明細，判斷是否「出貨中」：</p>
+        <pre class="pres-code">SELECT ui.inventory_id, t.toy_id, t.name, t.rarity, t.price,
+       t.image_url, ui.obtained_at, ui.status,
+       m.name AS machine_name, si.shipment_id
+FROM user_inventory ui
+JOIN toys     t  ON t.toy_id      = ui.toy_id
+JOIN machines m  ON m.machine_id  = t.machine_id
+LEFT JOIN shipment_items si ON si.inventory_id = ui.inventory_id
+WHERE ui.user_id = ? AND ui.status = 'owned'
+ORDER BY ui.obtained_at DESC</pre>
+        <p>說明：只顯示 <code>owned</code>；LEFT JOIN 因未出貨者無 shipment_items 列；依取得時間倒序。</p>
+
+        <h3>範例 C：錢包流水（wallet.html）</h3>
+        <pre class="pres-code">SELECT t.transaction_id, t.type, t.amount, t.created_at,
+       toy.name AS toy_name, toy.rarity AS toy_rarity
+FROM transactions t
+LEFT JOIN toys toy ON toy.toy_id = t.toy_id
+WHERE t.user_id = ?
+ORDER BY t.created_at DESC
+LIMIT 50</pre>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="口試 Q3">
+      <div class="pres-card">
+        <h2>口試必考 Q3 — 展示 3 筆真實資料列</h2>
+        <p>資料應來自<strong>前端操作產生</strong>（註冊 → 儲值 → 抽獎 → 售回或出貨），非手動 INSERT seed 假裝。</p>
+        <h3>建議展示的一組關聯列（口試前請自己操作一輪）</h3>
+        <table class="pres-table">
+          <thead><tr><th>表</th><th>範例說明</th><th>外鍵關係</th></tr></thead>
+          <tbody>
+            <tr><td>users</td><td>你的帳號與 balance</td><td>—</td></tr>
+            <tr><td>user_inventory</td><td>剛抽到的 inventory_id、toy_id</td><td>user_id → users；toy_id → toys</td></tr>
+            <tr><td>transactions</td><td>type='pull'、amount 為負的扣款</td><td>user_id、可含 toy_id 與 inventory_id</td></tr>
+          </tbody>
+        </table>
+        <p>若已出貨，可再加 <code>shipments</code> + <code>shipment_items</code> 說明第三列與前兩列如何透過 inventory_id 串起。</p>
+        <p>「異常資料」：售回後 status=sold 仍留在表內（稽核）；pull 的 amount 為負數（扣款慣例）。</p>
+        <p style="margin-top:.75rem">Demo：開啟 <a href="/wallet.html">錢包</a>、<a href="/inventory.html">背包</a> 對照畫面與 DB 內容。</p>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="API 與安全">
+      <div class="pres-card">
+        <h2>API 端點與安全設計</h2>
+        <table class="pres-table">
+          <thead><tr><th>模組</th><th>路徑（節錄）</th></tr></thead>
+          <tbody>
+            <tr><td>auth</td><td>POST /api/auth/register, login, logout</td></tr>
+            <tr><td>wallet</td><td>GET /api/wallet · POST /api/wallet/deposit</td></tr>
+            <tr><td>machines</td><td>GET /api/machines · GET /:id · POST /:id/pull</td></tr>
+            <tr><td>inventory</td><td>GET /api/inventory · POST /:id/sell</td></tr>
+            <tr><td>shipments</td><td>GET/POST /api/shipments · GET /:id</td></tr>
+            <tr><td>admin</td><td>GET users, shipments · PATCH shipment status</td></tr>
+            <tr><td>me</td><td>GET /api/me（導覽列餘額）</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>除 auth 外皆 <code>requireAuth</code>；管理 API 另加 <code>requireAdmin</code></li>
+          <li>所有 SQL 使用 <code>?</code> 參數化，不拼接使用者輸入</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="資料流 demo">
+      <div class="pres-card">
+        <h2>資料流示範（口試可邊做邊講）</h2>
+        <h3>抽獎一次</h3>
+        <div class="pres-flow">
+          <span>gacha.html 按鈕</span><span class="arrow">→</span>
+          <span>POST /api/machines/:id/pull</span><span class="arrow">→</span>
+          <span>transaction：扣 balance、INSERT inventory、INSERT transactions</span>
+        </div>
+        <h3>售回一件</h3>
+        <div class="pres-flow">
+          <span>inventory.html</span><span class="arrow">→</span>
+          <span>POST /api/inventory/:id/sell</span><span class="arrow">→</span>
+          <span>status=sold、balance+=60% price、transactions type=sell</span>
+        </div>
+        <h3>建立出貨</h3>
+        <div class="pres-flow">
+          <span>inventory 多選 + 出貨精靈</span><span class="arrow">→</span>
+          <span>POST /api/shipments</span><span class="arrow">→</span>
+          <span>shipments + shipment_items + 可扣運費</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="準備清單">
+      <div class="pres-card">
+        <h2>口試準備清單</h2>
+        <p>依課程文件，考前請確認：</p>
+        <ul class="pres-checklist">
+          <li>系統可端到端執行（非僅截圖）</li>
+          <li>能畫出 ER 圖並解釋設計理由</li>
+          <li>熟悉每個欄位名稱、型別與取捨</li>
+          <li>能追溯：表單 → 路由 → SQL → 資料表</li>
+          <li>資料庫內有透過網站操作產生的真實列</li>
+          <li>能回答本專案專屬問題（勿背通用答案）</li>
+        </ul>
+        <h3>啟動指令</h3>
+        <pre class="pres-code">npm install
+npm run db:init   # 僅重置時；會清空資料
+npm start         # http://localhost:3000</pre>
+        <p>管理員測試帳號：<code>admin</code> / <code>admin123</code></p>
+      </div>
+    </section>
+
+    <section class="pres-slide" data-title="結語">
+      <div class="pres-card">
+        <h2>結語</h2>
+        <p class="pres-lead">扭蛋樂園 = 遊戲化電商流程 + 關聯式資料庫實作練習</p>
+        <ul>
+          <li>9 頁前端、7 張表、完整金流與物流狀態</li>
+          <li>ER 圖與 SQL 皆可對應到實際檔案與頁面</li>
+          <li>歡迎教授現場點選任一功能驗證</li>
+        </ul>
+        <p style="margin-top:1.25rem">
+          <a href="/index.html" class="btn btn-primary">開始 Demo → 機台列表</a>
+          <a href="/admin.html" class="btn btn-outline" style="margin-left:.5rem">管理後台</a>
+        </p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+  initNav();
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    er: { layoutDirection: 'TB' },
+  });
+
+  const slides = [...document.querySelectorAll('.pres-slide')];
+  const toc = document.getElementById('pres-toc');
+  const progress = document.getElementById('pres-progress');
+  let idx = 0;
+
+  slides.forEach((slide, i) => {
+    const title = slide.dataset.title || `第 ${i + 1} 頁`;
+    const a = document.createElement('a');
+    a.href = '#';
+    a.textContent = `${i + 1}. ${title}`;
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      go(i);
+    });
+    toc.appendChild(a);
+  });
+
+  function renderMermaidIn(slide) {
+    const nodes = [...slide.querySelectorAll('.mermaid[data-source]')]
+      .filter(el => !el.dataset.rendered);
+    if (!nodes.length) return;
+
+    nodes.forEach(el => {
+      const src = document.getElementById(el.dataset.source);
+      if (src) el.textContent = src.textContent.trim();
+    });
+
+    mermaid.run({ nodes }).then(() => {
+      nodes.forEach(el => { el.dataset.rendered = '1'; });
+    }).catch(err => {
+      console.error('Mermaid render failed:', err);
+      nodes.forEach(el => {
+        if (!el.dataset.rendered) {
+          el.innerHTML = '<p style="color:#f87171;padding:1rem">圖表載入失敗，請見「ER 圖 Mermaid」投影片或 docs/ER-diagram.md。</p>';
+        }
+      });
+    });
+  }
+
+  function go(n) {
+    idx = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    toc.querySelectorAll('a').forEach((a, i) => a.classList.toggle('active', i === idx));
+    progress.textContent = `第 ${idx + 1} / ${slides.length} 頁`;
+    renderMermaidIn(slides[idx]);
+    slides[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  document.getElementById('pres-prev').addEventListener('click', () => go(idx - 1));
+  document.getElementById('pres-next').addEventListener('click', () => go(idx + 1));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') go(idx - 1);
+    if (e.key === 'ArrowRight') go(idx + 1);
+  });
+
+  go(0);
+</script>
+</body>
+</html>
