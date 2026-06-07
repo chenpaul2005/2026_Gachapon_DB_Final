@@ -43,7 +43,7 @@ async function initNav() {
       if (!navLinks.querySelector('a[href="/presentation.html"]')) {
         const pres = document.createElement('a');
         pres.href = '/presentation.html';
-        pres.textContent = '口試簡報';
+        pres.textContent = '網站簡介';
         pres.className = 'nav-pres';
         navLinks.appendChild(pres);
       }
