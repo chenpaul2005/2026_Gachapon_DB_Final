@@ -2,6 +2,8 @@
 
 **資料庫期末專題** — 以 Node.js + Express + SQLite 建構的全端扭蛋網站。
 
+**線上網站**：https://two026-gachapon-db-final.onrender.com
+
 ---
 
 ## 系統需求
